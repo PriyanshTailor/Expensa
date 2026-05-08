@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/jio_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Learn Finance"
+            android:textColor="@color/jio_text_primary"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Master your money with bite-sized lessons"
+            android:textColor="@color/jio_text_secondary"
+            android:textSize="14sp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Featured Lesson Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="24dp">
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="200dp">
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@android:drawable/ic_menu_gallery"
+                    android:scaleType="centerCrop"
+                    android:alpha="0.6" />
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_premium_gradient" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentBottom="true"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="FEATURED LESSON"
+                        android:textColor="@color/jio_primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.1" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="The Power of Compounding"
+                        android:textColor="@color/white"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+                <ImageView
+                    android:id="@+id/btnPlayVideo"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:layout_centerInParent="true"
+                    android:src="@android:drawable/ic_media_play"
+                    app:tint="@color/white"
+                    android:background="@drawable/circle_bg"
+                    android:backgroundTint="#80000000"
+                    android:padding="16dp" />
+            </RelativeLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Topic List -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Popular Topics"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:textColor="@color/jio_text_primary"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Topic 1: Budgeting -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardBudgeting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="16dp">
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp">
+                <ImageView
+                    android:id="@+id/ivTopic1"
+                    android:layout_width="45dp"
+                    android:layout_height="45dp"
+                    android:src="@android:drawable/ic_menu_sort_by_size"
+                    android:background="#F3E5F5"
+                    android:padding="10dp"
+                    app:tint="#9C27B0" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/ivTopic1"
+                    android:layout_marginStart="16dp"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Budgeting 101"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:textColor="@color/jio_text_primary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Learn the 50/30/20 rule of saving"
+                        android:textSize="12sp"
+                        android:textColor="@color/jio_text_secondary" />
+                </LinearLayout>
+            </RelativeLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Topic 2: SIP -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardSIP"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="16dp">
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp">
+                <ImageView
+                    android:id="@+id/ivTopic2"
+                    android:layout_width="45dp"
+                    android:layout_height="45dp"
+                    android:src="@android:drawable/ic_menu_view"
+                    android:background="#E1F5FE"
+                    android:padding="10dp"
+                    app:tint="#03A9F4" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/ivTopic2"
+                    android:layout_marginStart="16dp"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="What is SIP?"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:textColor="@color/jio_text_primary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Systematic Investment Planning for beginners"
+                        android:textSize="12sp"
+                        android:textColor="@color/jio_text_secondary" />
+                </LinearLayout>
+            </RelativeLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Topic 3: Tax Saving -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardTax"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="16dp">
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp">
+                <ImageView
+                    android:id="@+id/ivTopic3"
+                    android:layout_width="45dp"
+                    android:layout_height="45dp"
+                    android:src="@android:drawable/ic_menu_save"
+                    android:background="#FFF3E0"
+                    android:padding="10dp"
+                    app:tint="#FF9800" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/ivTopic3"
+                    android:layout_marginStart="16dp"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tax Saving Hacks"
+                        android:textStyle="bold"
+                        android:textSize="15sp"
+                        android:textColor="@color/jio_text_primary" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Max out your 80C benefits easily"
+                        android:textSize="12sp"
+                        android:textColor="@color/jio_text_secondary" />
+                </LinearLayout>
+            </RelativeLayout>
+        </androidx.cardview.widget.CardView>
+
+        <View 
+            android:layout_width="match_parent"
+            android:layout_height="80dp" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

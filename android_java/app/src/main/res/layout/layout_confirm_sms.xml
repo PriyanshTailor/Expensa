@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/bg_bottom_sheet">
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center"
+        android:layout_marginBottom="24dp"
+        android:background="#E2E8F0" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Detect Transaction"
+        android:textColor="@color/textDark"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:hint="Paste SMS Content Here">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etSmsRaw"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:gravity="top"
+            android:inputType="textMultiLine" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <Button
+        android:id="@+id/btnDetect"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Detect from Text"
+        android:textAllCaps="false"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_marginBottom="24dp" />
+
+    <LinearLayout
+        android:id="@+id/layoutParsedResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Detected Details"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <include layout="@layout/item_expense" />
+
+        <Button
+            android:id="@+id/btnConfirmSms"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Confirm &amp; Save"
+            android:layout_marginTop="16dp"
+            app:cornerRadius="12dp" />
+    </LinearLayout>
+
+</LinearLayout>

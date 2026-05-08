@@ -1,0 +1,25 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.gradle/
+build/
+app/build/
+*.bak
+
+# Local configuration
+local.properties
+
+# Secrets
+google-services.json
+serviceAccountKey.json
+
+# Build directories
+target/
+build/
+.gradle/
+bin/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
