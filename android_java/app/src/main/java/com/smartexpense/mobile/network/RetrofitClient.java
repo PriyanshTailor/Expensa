@@ -18,12 +18,8 @@ public class RetrofitClient {
         if (customBaseUrl != null) {
             return customBaseUrl;
         }
-        // Use 10.0.2.2 for Emulator, otherwise use the specific IP
-        if (android.os.Build.FINGERPRINT.contains("generic") || android.os.Build.MODEL.contains("Emulator")) {
-            return "http://10.0.2.2:8080/";
-        }
-        // Default IP
-        return "http://10.163.135.74:8080/";
+        // Production API deployed on Render
+        return "https://expensaa.onrender.com/";
     }
     private static Retrofit retrofit = null;
     private static String authToken = null;
