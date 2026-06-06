@@ -42,7 +42,9 @@ public class ExpenseAdapter extends ListAdapter<Transaction, ExpenseAdapter.View
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Transaction expense = getItem(position);
-        holder.tvMerchant.setText(expense.merchant);
+        String displayTitle = (expense.merchant != null && !expense.merchant.trim().isEmpty()) ? expense.merchant : expense.category;
+        if (displayTitle == null || displayTitle.trim().isEmpty()) displayTitle = "Unknown";
+        holder.tvMerchant.setText(displayTitle);
         holder.tvCategory.setText(expense.category);
         
         String amountStr = NumberFormat.getCurrencyInstance(new Locale("en", "IN")).format(expense.amount);
