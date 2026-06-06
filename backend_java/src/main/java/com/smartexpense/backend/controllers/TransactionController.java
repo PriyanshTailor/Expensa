@@ -142,8 +142,9 @@ public class TransactionController {
             List<Transaction> transactions = transactionService.findByUserId(userId);
             // Sort by date descending
             transactions.sort((t1, t2) -> {
-                if (t1.getTransactionDate() == null || t2.getTransactionDate() == null) return 0;
-                return t2.getTransactionDate().compareTo(t1.getTransactionDate());
+                Long d1 = t1.getDate() != null ? t1.getDate() : 0L;
+                Long d2 = t2.getDate() != null ? t2.getDate() : 0L;
+                return d2.compareTo(d1);
             });
             // Return top 5
             return ResponseEntity.ok(transactions.stream().limit(5).toList());

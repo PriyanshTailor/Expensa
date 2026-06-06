@@ -19,6 +19,9 @@ public class TransactionService {
         if (transaction.getCreatedAt() == null) {
             transaction.setCreatedAt(LocalDateTime.now());
         }
+        if (transaction.getDate() == null || transaction.getDate() == 0L) {
+            transaction.setDate(System.currentTimeMillis());
+        }
         transaction.setUpdatedAt(LocalDateTime.now());
         return transactionRepository.save(transaction);
     }

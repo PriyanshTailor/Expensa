@@ -20,6 +20,9 @@ public class Transaction {
     private String category;
     private double amount;
     private String note;
+    private String merchant;
+    private Long date;
+    private String rawMessage;
     private String receiptUrl;
     private LocalDateTime transactionDate;
     private boolean isRecurring = false;
