@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey;
 
 @Entity(tableName = "bills")
 public class Bill {
+    @com.google.gson.annotations.SerializedName(value = "id", alternate = {"_id"})
     @PrimaryKey
     @androidx.annotation.NonNull
     public String id = "";

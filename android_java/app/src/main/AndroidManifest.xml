@@ -18,7 +18,7 @@
         android:theme="@style/Theme.SmartExpense">
         
         <receiver
-            android:name=".sms.TransactionSmsReceiver"
+            android:name=".sms.SmsReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter android:priority="999">

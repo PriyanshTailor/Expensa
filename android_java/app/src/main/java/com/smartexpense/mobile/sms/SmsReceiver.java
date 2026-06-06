@@ -34,6 +34,7 @@ public class SmsReceiver extends BroadcastReceiver {
                     SmsParserUtil.ParsedTransaction details = SmsParserUtil.parse(messageBody);
                     
                     if (details.amount > 0) {
+                        final PendingResult pendingResult = goAsync();
                         new Thread(() -> {
                             try {
                                 android.content.SharedPreferences prefs = context.getSharedPreferences("ExpenseTracker", Context.MODE_PRIVATE);
@@ -44,7 +45,11 @@ public class SmsReceiver extends BroadcastReceiver {
                                 } else {
                                     Log.e(TAG, "No user logged in, cannot save SMS.");
                                 }
-                            } catch (Exception e) {}
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error in SmsReceiver background processing", e);
+                            } finally {
+                                pendingResult.finish();
+                            }
                         }).start();
                     }
                 }
@@ -70,36 +75,30 @@ public class SmsReceiver extends BroadcastReceiver {
         String targetCollection = isBill ? "bills" : "expenses";
         
         // Replaced Firestore with Retrofit API
-        if (!isBill) {
-            com.smartexpense.mobile.network.RetrofitClient.getClient()
-                .create(com.smartexpense.mobile.network.ApiService.class)
-                .createTransaction(data)
-                .enqueue(new retrofit2.Callback<Map<String, Object>>() {
-                    @Override
-                    public void onResponse(retrofit2.Call<Map<String, Object>> call, retrofit2.Response<Map<String, Object>> response) {}
-                    @Override
-                    public void onFailure(retrofit2.Call<Map<String, Object>> call, Throwable t) {}
-                });
-        } else {
-            com.smartexpense.mobile.model.Bill bill = new com.smartexpense.mobile.model.Bill();
-            bill.userId = uid;
-            bill.billerName = tx.merchant != null ? tx.merchant : "Unknown Biller";
-            bill.amountDue = tx.amount;
-            bill.dueDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date(timestamp));
-            bill.billType = tx.category != null ? tx.category : "Bills & Utilities";
-            bill.isPaid = false;
-            bill.rawSms = tx.originalMessage;
-            bill.detectedAt = timestamp;
+        try {
+            if (!isBill) {
+                com.smartexpense.mobile.network.RetrofitClient.getClient()
+                    .create(com.smartexpense.mobile.network.ApiService.class)
+                    .createTransaction(data)
+                    .execute();
+            } else {
+                com.smartexpense.mobile.model.Bill bill = new com.smartexpense.mobile.model.Bill();
+                bill.userId = uid;
+                bill.billerName = tx.merchant != null ? tx.merchant : "Unknown Biller";
+                bill.amountDue = tx.amount;
+                bill.dueDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date(timestamp));
+                bill.billType = tx.category != null ? tx.category : "Bills & Utilities";
+                bill.isPaid = false;
+                bill.rawSms = tx.originalMessage;
+                bill.detectedAt = timestamp;
 
-            com.smartexpense.mobile.network.RetrofitClient.getClient()
-                .create(com.smartexpense.mobile.network.ApiService.class)
-                .createBill(bill)
-                .enqueue(new retrofit2.Callback<com.smartexpense.mobile.model.Bill>() {
-                    @Override
-                    public void onResponse(retrofit2.Call<com.smartexpense.mobile.model.Bill> call, retrofit2.Response<com.smartexpense.mobile.model.Bill> response) {}
-                    @Override
-                    public void onFailure(retrofit2.Call<com.smartexpense.mobile.model.Bill> call, Throwable t) {}
-                });
+                com.smartexpense.mobile.network.RetrofitClient.getClient()
+                    .create(com.smartexpense.mobile.network.ApiService.class)
+                    .createBill(bill)
+                    .execute();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save SMS data to backend via Retrofit", e);
         }
     }
 }
