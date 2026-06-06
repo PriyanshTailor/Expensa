@@ -33,7 +33,9 @@ public class SmsAdapter extends RecyclerView.Adapter<SmsAdapter.ViewHolder> {
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Transaction tx = transactions.get(position);
         
-        holder.tvMerchant.setText(tx.merchant);
+        String displayTitle = (tx.merchant != null && !tx.merchant.trim().isEmpty()) ? tx.merchant : tx.category;
+        if (displayTitle == null || displayTitle.trim().isEmpty()) displayTitle = "Unknown";
+        holder.tvMerchant.setText(displayTitle);
         
         if (tx.rawSms != null && !tx.rawSms.isEmpty()) {
             holder.tvCategory.setText(tx.category + " • " + tx.rawSms);
