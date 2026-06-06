@@ -50,6 +50,18 @@ public class ExpensesFragment extends Fragment {
 
         initViews(view);
 
+        fetchTransactions();
+
+        fabAdd.setOnClickListener(v -> {
+            AddExpenseBottomSheet sheet = new AddExpenseBottomSheet();
+            sheet.setOnDismissListener(this::fetchTransactions);
+            sheet.show(getChildFragmentManager(), "add_expense");
+        });
+
+        return view;
+    }
+
+    private void fetchTransactions() {
         android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
         String uid = prefs.getString("userId", null);
         if (uid != null) {
@@ -96,12 +108,6 @@ public class ExpensesFragment extends Fragment {
                     }
                 });
         }
-
-        fabAdd.setOnClickListener(v -> {
-            new AddExpenseBottomSheet().show(getChildFragmentManager(), "add_expense");
-        });
-
-        return view;
     }
 
     private void initViews(View view) {

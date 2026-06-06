@@ -84,7 +84,13 @@ public class HomeFragment extends Fragment {
         View fabAdd = view.findViewById(R.id.fabAddExpenseHome);
         if (fabAdd != null) {
             fabAdd.setOnClickListener(v -> {
-                new AddExpenseBottomSheet().show(getParentFragmentManager(), "add_expense");
+                AddExpenseBottomSheet sheet = new AddExpenseBottomSheet();
+                sheet.setOnDismissListener(() -> {
+                    fetchUserData();
+                    fetchRecentSms();
+                    fetchChartData();
+                });
+                sheet.show(getParentFragmentManager(), "add_expense");
             });
         }
 

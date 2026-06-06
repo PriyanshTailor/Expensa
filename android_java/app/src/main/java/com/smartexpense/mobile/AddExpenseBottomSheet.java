@@ -42,6 +42,12 @@ public class AddExpenseBottomSheet extends BottomSheetDialogFragment {
         return view;
     }
 
+    private Runnable onDismissListener;
+
+    public void setOnDismissListener(Runnable listener) {
+        this.onDismissListener = listener;
+    }
+
     private void setupSpinners() {
         String[] categories = {"Food & Dining", "Transport", "Shopping", "Entertainment", "Bills & Utilities", "Health", "Education", "Groceries", "Travel", "Other"};
         String[] modes = {"UPI", "Cash", "Credit Card", "Debit Card", "Net Banking"};
@@ -110,6 +116,9 @@ public class AddExpenseBottomSheet extends BottomSheetDialogFragment {
                                 });
                                 
                                 Toast.makeText(getContext(), "Expense saved", Toast.LENGTH_SHORT).show();
+                                if (onDismissListener != null) {
+                                    onDismissListener.run();
+                                }
                                 dismiss();
                             } else {
                                 Toast.makeText(getContext(), "Failed to save expense", Toast.LENGTH_SHORT).show();
