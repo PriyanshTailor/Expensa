@@ -14,11 +14,12 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.DocumentSnapshot;
+import com.smartexpense.mobile.network.ApiService;
+import com.smartexpense.mobile.network.RetrofitClient;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import java.util.Map;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ public class HomeFragment extends Fragment {
     private android.widget.Button btnAddUpdateWealth;
     private RecyclerView rvRecentSms;
     private LinearLayout layoutEmptySms;
-    private FirebaseFirestore db;
+
     private String uid;
     private com.github.mikephil.charting.charts.PieChart pieChartHome;
 
@@ -46,11 +47,13 @@ public class HomeFragment extends Fragment {
         setGreeting();
 
         try {
-            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-            if (user != null) {
-                uid = user.getUid();
-                db = FirebaseFirestore.getInstance();
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+            if (prefs.getBoolean("isLoggedIn", false)) {
+                uid = prefs.getString("userId", null);
+                String userName = prefs.getString("userName", "User");
+                tvUserName.setText(userName);
                 
+
                 fetchUserData();
                 fetchRecentSms();
                 fetchChartData();
@@ -126,106 +129,148 @@ public class HomeFragment extends Fragment {
     }
 
     private void fetchUserData() {
-        if (db == null || uid == null) return;
+        if (uid == null) return;
 
-        com.google.firebase.auth.FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user != null && user.getDisplayName() != null) {
-            tvUserName.setText(user.getDisplayName());
-        }
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+        String userName = prefs.getString("userName", "User");
+        tvUserName.setText(userName);
         
-        db.collection("users").document(uid).addSnapshotListener((documentSnapshot, error) -> {
-            if (documentSnapshot != null && documentSnapshot.exists()) {
-                String name = documentSnapshot.getString("name");
-                Double savings = documentSnapshot.getDouble("savingsBalance");
-                Double mf = documentSnapshot.getDouble("mutualFunds");
+        RetrofitClient.getClient().create(ApiService.class).getUserProfile(uid)
+            .enqueue(new Callback<Map<String, Object>>() {
+                @Override
+                public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        Map<String, Object> data = response.body();
+                        String name = (String) data.get("name");
+                        Double savings = data.get("savingsBalance") instanceof Number ? ((Number) data.get("savingsBalance")).doubleValue() : 0.0;
+                        Double mf = data.get("mutualFunds") instanceof Number ? ((Number) data.get("mutualFunds")).doubleValue() : 0.0;
 
-                if (name != null) tvUserName.setText(name);
-                
-                double sVal = savings != null ? savings : 0;
-                double mVal = mf != null ? mf : 0;
-                
-                tvSavingsBalance.setText(formatCurrency(sVal));
-                tvMFBalance.setText(formatCurrency(mVal));
-                tvTotalWealth.setText(formatCurrency(sVal + mVal));
+                        if (name != null) tvUserName.setText(name);
+                        
+                        tvSavingsBalance.setText(formatCurrency(savings));
+                        tvMFBalance.setText(formatCurrency(mf));
+                        tvTotalWealth.setText(formatCurrency(savings + mf));
 
-                if (btnAddUpdateWealth != null) {
-                    if (sVal > 0 || mVal > 0 || savings != null || mf != null) {
-                        btnAddUpdateWealth.setText("Update");
-                    } else {
-                        btnAddUpdateWealth.setText("Add");
+                        if (btnAddUpdateWealth != null) {
+                            if (savings > 0 || mf > 0) {
+                                btnAddUpdateWealth.setText("Update");
+                            } else {
+                                btnAddUpdateWealth.setText("Add");
+                            }
+                        }
                     }
                 }
-            }
-        });
+
+                @Override
+                public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
+            });
     }
 
     private void fetchRecentSms() {
         if (uid == null) return;
         
-        com.smartexpense.mobile.database.AppDatabase roomDb = com.smartexpense.mobile.database.AppDatabase.getDatabase(getContext());
-        roomDb.transactionDao().getAllTransactions(uid).observe(getViewLifecycleOwner(), transactions -> {
-            if (transactions == null || transactions.isEmpty()) {
-                if (layoutEmptySms != null) layoutEmptySms.setVisibility(View.VISIBLE);
-                if (rvRecentSms != null) rvRecentSms.setVisibility(View.GONE);
-            } else {
-                if (layoutEmptySms != null) layoutEmptySms.setVisibility(View.GONE);
-                if (rvRecentSms != null) {
-                    rvRecentSms.setVisibility(View.VISIBLE);
-                    // Take top 5
-                    List<com.smartexpense.mobile.model.Transaction> top5 = new ArrayList<>();
-                    for (int i = 0; i < Math.min(5, transactions.size()); i++) {
-                        top5.add(transactions.get(i));
+        RetrofitClient.getClient().create(ApiService.class).getRecentTransactions()
+            .enqueue(new Callback<List<Map<String, Object>>>() {
+                @Override
+                public void onResponse(Call<List<Map<String, Object>>> call, Response<List<Map<String, Object>>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        List<Map<String, Object>> transactions = response.body();
+                        if (transactions.isEmpty()) {
+                            if (layoutEmptySms != null) layoutEmptySms.setVisibility(View.VISIBLE);
+                            if (rvRecentSms != null) rvRecentSms.setVisibility(View.GONE);
+                        } else {
+                            if (layoutEmptySms != null) layoutEmptySms.setVisibility(View.GONE);
+                            if (rvRecentSms != null) {
+                                rvRecentSms.setVisibility(View.VISIBLE);
+                                List<com.smartexpense.mobile.model.Transaction> top5 = new ArrayList<>();
+                                for (Map<String, Object> doc : transactions) {
+                                    com.smartexpense.mobile.model.Transaction tx = new com.smartexpense.mobile.model.Transaction();
+                                    tx.amount = doc.get("amount") instanceof Number ? ((Number) doc.get("amount")).doubleValue() : 0.0;
+                                    tx.merchant = (String) doc.get("merchant");
+                                    tx.category = (String) doc.get("category");
+                                    tx.type = (String) doc.get("type");
+                                    tx.source = (String) doc.get("source");
+                                    // Parse date string to long if necessary, assuming backend sends epoch or ISO string
+                                    Object dateObj = doc.get("date");
+                                    if (dateObj instanceof Number) {
+                                        tx.timestamp = ((Number) dateObj).longValue();
+                                    } else if (dateObj instanceof String) {
+                                        try {
+                                            java.time.Instant instant = java.time.Instant.parse((String) dateObj);
+                                            tx.timestamp = instant.toEpochMilli();
+                                        } catch(Exception e){}
+                                    }
+                                    tx.rawSms = (String) doc.get("rawMessage");
+                                    if (tx.rawSms == null) tx.rawSms = "";
+                                    top5.add(tx);
+                                }
+                                rvRecentSms.setAdapter(new com.smartexpense.mobile.sms.SmsAdapter(top5));
+                            }
+                        }
                     }
-                    rvRecentSms.setAdapter(new com.smartexpense.mobile.sms.SmsAdapter(top5));
                 }
-            }
-        });
+
+                @Override
+                public void onFailure(Call<List<Map<String, Object>>> call, Throwable t) {}
+            });
     }
 
     // Methods removed for auto-adding
 
     private void fetchChartData() {
         if (pieChartHome == null || uid == null) return;
-        com.smartexpense.mobile.database.AppDatabase roomDb = com.smartexpense.mobile.database.AppDatabase.getDatabase(getContext());
-        roomDb.transactionDao().getAllTransactions(uid).observe(getViewLifecycleOwner(), transactions -> {
-            if (transactions == null) return;
-            java.util.Map<String, Double> categoryTotals = new java.util.HashMap<>();
-            for (com.smartexpense.mobile.model.Transaction tx : transactions) {
-                if ("DEBIT".equalsIgnoreCase(tx.type)) {
-                    categoryTotals.put(tx.category, 
-                        categoryTotals.getOrDefault(tx.category, 0.0) + tx.amount);
+        
+        RetrofitClient.getClient().create(ApiService.class).getTransactionSummary()
+            .enqueue(new Callback<Map<String, Double>>() {
+                @Override
+                public void onResponse(Call<Map<String, Double>> call, Response<Map<String, Double>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        Map<String, Double> categoryTotals = response.body();
+                        
+                        if (categoryTotals.isEmpty()) categoryTotals.put("No Data", 1.0);
+
+                        List<com.github.mikephil.charting.data.PieEntry> entries = new ArrayList<>();
+                        for (java.util.Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
+                            entries.add(new com.github.mikephil.charting.data.PieEntry(entry.getValue().floatValue(), entry.getKey()));
+                        }
+
+                        com.github.mikephil.charting.data.PieDataSet dataSet = new com.github.mikephil.charting.data.PieDataSet(entries, "");
+                        dataSet.setColors(com.github.mikephil.charting.utils.ColorTemplate.MATERIAL_COLORS);
+                        dataSet.setValueTextColor(android.graphics.Color.BLACK);
+                        dataSet.setValueTextSize(12f);
+
+                        pieChartHome.setData(new com.github.mikephil.charting.data.PieData(dataSet));
+                        pieChartHome.invalidate();
+                    }
                 }
-            }
-            if (categoryTotals.isEmpty()) categoryTotals.put("No Data", 1.0);
 
-            List<com.github.mikephil.charting.data.PieEntry> entries = new ArrayList<>();
-            for (java.util.Map.Entry<String, Double> entry : categoryTotals.entrySet()) {
-                entries.add(new com.github.mikephil.charting.data.PieEntry(entry.getValue().floatValue(), entry.getKey()));
-            }
-
-            com.github.mikephil.charting.data.PieDataSet dataSet = new com.github.mikephil.charting.data.PieDataSet(entries, "");
-            dataSet.setColors(com.github.mikephil.charting.utils.ColorTemplate.MATERIAL_COLORS);
-            dataSet.setValueTextColor(android.graphics.Color.BLACK);
-            dataSet.setValueTextSize(12f);
-
-            pieChartHome.setData(new com.github.mikephil.charting.data.PieData(dataSet));
-            pieChartHome.invalidate();
-        });
+                @Override
+                public void onFailure(Call<Map<String, Double>> call, Throwable t) {}
+            });
     }
 
     private void showEditBalanceSheet() {
-        if (db == null || uid == null) return;
+        if (uid == null) return;
         
-        db.collection("users").document(uid).get().addOnSuccessListener(doc -> {
-            Double currentSavings = doc.getDouble("savingsBalance");
-            Double currentMF = doc.getDouble("mutualFunds");
-            
-            EditBalanceBottomSheet.newInstance(
-                currentSavings != null ? currentSavings : 0,
-                currentMF != null ? currentMF : 0,
-                this::fetchUserData
-            ).show(getChildFragmentManager(), "edit_balance");
-        });
+        RetrofitClient.getClient().create(ApiService.class).getUserProfile(uid)
+            .enqueue(new Callback<Map<String, Object>>() {
+                @Override
+                public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        Map<String, Object> data = response.body();
+                        Double currentSavings = data.get("savingsBalance") instanceof Number ? ((Number) data.get("savingsBalance")).doubleValue() : 0.0;
+                        Double currentMF = data.get("mutualFunds") instanceof Number ? ((Number) data.get("mutualFunds")).doubleValue() : 0.0;
+                        
+                        EditBalanceBottomSheet.newInstance(
+                            currentSavings,
+                            currentMF,
+                            () -> fetchUserData()
+                        ).show(getChildFragmentManager(), "edit_balance");
+                    }
+                }
+                @Override
+                public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
+            });
     }
 
     private String formatCurrency(double amount) {

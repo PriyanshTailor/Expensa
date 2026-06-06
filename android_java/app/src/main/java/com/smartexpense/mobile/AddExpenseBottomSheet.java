@@ -67,47 +67,63 @@ public class AddExpenseBottomSheet extends BottomSheetDialogFragment {
         try {
             double amountVal = Double.parseDouble(amount);
             
-            com.smartexpense.mobile.model.Transaction t = new com.smartexpense.mobile.model.Transaction();
-            t.amount = amountVal;
-            t.category = category;
-            t.type = type.toUpperCase();
-            t.merchant = note.isEmpty() ? mode : note; // Use note as merchant or fallback to mode
-            t.source = "MANUAL";
-            t.pendingReview = false;
-            t.timestamp = System.currentTimeMillis();
-            t.rawSms = "";
-            t.accountLast4 = "";
-            t.userId = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+            String uid = prefs.getString("userId", null);
             
-            new Thread(() -> {
-                try {
-                    com.smartexpense.mobile.database.AppDatabase.getDatabase(getContext()).transactionDao().insert(t);
-                    
-                    // Update Firebase balance for sync
-                    String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null ? 
-                                 com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
-                    if (uid != null) {
-                        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-                        db.collection("users").document(uid).get().addOnSuccessListener(userDoc -> {
-                            Double bal = userDoc.getDouble("savingsBalance");
-                            if (bal == null) bal = 0.0;
-                            if ("DEBIT".equals(t.type)) bal -= t.amount;
-                            else bal += t.amount;
-                            db.collection("users").document(uid).update("savingsBalance", bal);
-                        });
-                    }
-                    
-                    getActivity().runOnUiThread(() -> {
-                        Toast.makeText(getContext(), "Expense saved", Toast.LENGTH_SHORT).show();
-                        dismiss();
+            if (uid != null) {
+                String merchant = note.isEmpty() ? mode : note;
+                String finalType = type.toUpperCase();
+                
+                Map<String, Object> data = new HashMap<>();
+                data.put("amount", amountVal);
+                data.put("merchant", merchant);
+                data.put("category", category);
+                data.put("type", finalType);
+                data.put("date", new java.util.Date().getTime()); // send as epoch ms
+                data.put("source", "MANUAL");
+                data.put("rawMessage", "");
+
+                com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class).createTransaction(data)
+                    .enqueue(new retrofit2.Callback<Map<String, Object>>() {
+                        @Override
+                        public void onResponse(retrofit2.Call<Map<String, Object>> call, retrofit2.Response<Map<String, Object>> response) {
+                            if (response.isSuccessful()) {
+                                // Update balance logic
+                                com.smartexpense.mobile.network.ApiService api = com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class);
+                                api.getUserProfile(uid).enqueue(new retrofit2.Callback<Map<String, Object>>() {
+                                    @Override
+                                    public void onResponse(retrofit2.Call<Map<String, Object>> c, retrofit2.Response<Map<String, Object>> r) {
+                                        if (r.isSuccessful() && r.body() != null) {
+                                            Double bal = r.body().get("savingsBalance") instanceof Number ? ((Number) r.body().get("savingsBalance")).doubleValue() : 0.0;
+                                            if ("DEBIT".equals(finalType)) bal -= amountVal;
+                                            else bal += amountVal;
+                                            
+                                            Map<String, Double> bData = new HashMap<>();
+                                            bData.put("savingsBalance", bal);
+                                            api.updateBalance(uid, bData).enqueue(new retrofit2.Callback<Map<String, Object>>() {
+                                                public void onResponse(retrofit2.Call<Map<String, Object>> cc, retrofit2.Response<Map<String, Object>> rr) {}
+                                                public void onFailure(retrofit2.Call<Map<String, Object>> cc, Throwable tt) {}
+                                            });
+                                        }
+                                    }
+                                    public void onFailure(retrofit2.Call<Map<String, Object>> c, Throwable t) {}
+                                });
+                                
+                                Toast.makeText(getContext(), "Expense saved", Toast.LENGTH_SHORT).show();
+                                dismiss();
+                            } else {
+                                Toast.makeText(getContext(), "Failed to save expense", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                        @Override
+                        public void onFailure(retrofit2.Call<Map<String, Object>> call, Throwable t) {
+                            Toast.makeText(getContext(), "Network error", Toast.LENGTH_SHORT).show();
+                        }
                     });
-                } catch (Exception e) {
-                    getActivity().runOnUiThread(() -> {
-                        Toast.makeText(getContext(), "Failed to save", Toast.LENGTH_SHORT).show();
-                        dismiss();
-                    });
-                }
-            }).start();
+            } else {
+                Toast.makeText(getContext(), "User not logged in", Toast.LENGTH_SHORT).show();
+                dismiss();
+            }
         } catch (Exception e) {
             Toast.makeText(getContext(), "Invalid amount", Toast.LENGTH_SHORT).show();
         }

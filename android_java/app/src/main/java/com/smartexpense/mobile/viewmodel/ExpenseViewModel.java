@@ -20,7 +20,8 @@ public class ExpenseViewModel extends AndroidViewModel {
     public ExpenseViewModel(Application application) {
         super(application);
         db = AppDatabase.getDatabase(application);
-        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        android.content.SharedPreferences prefs = application.getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+        String uid = prefs.getString("userId", null);
         allTransactions = db.transactionDao().getAllTransactions(uid);
         allBills = db.billDao().getAllBills(uid);
     }

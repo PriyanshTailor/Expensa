@@ -20,20 +20,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Auth Check (Using Firebase)
-        try {
-            if (com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null) {
-                startActivity(new Intent(this, LoginActivity.class));
-                finish();
-                return;
-            }
-        } catch (Exception e) {
-            android.util.Log.e("MainActivity", "Firebase Config Error", e);
-            // If Firebase is failing, we redirect to Login where we can show a better error
+        // Auth Check (Using SharedPreferences for Backend)
+        android.content.SharedPreferences sharedPreferences = getSharedPreferences("ExpenseTracker", MODE_PRIVATE);
+        boolean isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false);
+        String savedToken = sharedPreferences.getString("token", null);
+
+        if (!isLoggedIn || savedToken == null) {
             startActivity(new Intent(this, LoginActivity.class));
             finish();
             return;
         }
+
+        // IMPORTANT: Ensure the network client has the token after app restart
+        com.smartexpense.mobile.network.RetrofitClient.setAuthToken(savedToken);
 
         setContentView(R.layout.activity_main);
 
@@ -46,7 +45,8 @@ public class MainActivity extends AppCompatActivity {
                 getSupportFragmentManager().beginTransaction().replace(R.id.fragment_container, new LearnFragment()).commit();
                 return true;
             } else if (item.getItemId() == R.id.action_logout) {
-                com.google.firebase.auth.FirebaseAuth.getInstance().signOut();
+                getSharedPreferences("ExpenseTracker", MODE_PRIVATE).edit().clear().apply();
+                com.smartexpense.mobile.network.RetrofitClient.setAuthToken(null);
                 startActivity(new Intent(this, LoginActivity.class));
                 finish();
                 return true;

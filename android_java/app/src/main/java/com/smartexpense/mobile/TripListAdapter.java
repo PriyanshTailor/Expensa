@@ -9,25 +9,34 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
-public class TripListAdapter extends ListAdapter<TripListAdapter.TripObj, TripListAdapter.ViewHolder> {
+import com.smartexpense.mobile.model.Trip;
+
+public class TripListAdapter extends ListAdapter<Trip, TripListAdapter.ViewHolder> {
 
     public interface OnTripClickListener {
-        void onTripClick(TripObj trip);
-        void onTripLongClick(TripObj trip);
+        void onTripClick(Trip trip);
+        void onTripLongClick(Trip trip);
     }
 
     private OnTripClickListener listener;
 
     public TripListAdapter(OnTripClickListener listener) {
-        super(new DiffUtil.ItemCallback<TripObj>() {
+        super(new DiffUtil.ItemCallback<Trip>() {
             @Override
-            public boolean areItemsTheSame(@NonNull TripObj oldItem, @NonNull TripObj newItem) {
-                return oldItem.id.equals(newItem.id);
+            public boolean areItemsTheSame(@NonNull Trip oldItem, @NonNull Trip newItem) {
+                String oldId = oldItem.getId();
+                String newId = newItem.getId();
+                if (oldId == null || newId == null) return false;
+                return oldId.equals(newId);
             }
 
             @Override
-            public boolean areContentsTheSame(@NonNull TripObj oldItem, @NonNull TripObj newItem) {
-                return oldItem.name.equals(newItem.name);
+            public boolean areContentsTheSame(@NonNull Trip oldItem, @NonNull Trip newItem) {
+                String oldName = oldItem.getName();
+                String newName = newItem.getName();
+                if (oldName == null || newName == null) return false;
+                return oldName.equals(newName) &&
+                       oldItem.getMemberCount() == newItem.getMemberCount();
             }
         });
         this.listener = listener;
@@ -42,9 +51,9 @@ public class TripListAdapter extends ListAdapter<TripListAdapter.TripObj, TripLi
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        TripObj trip = getItem(position);
-        holder.tvName.setText(trip.name);
-        holder.tvMembers.setText(trip.memberCount + " Members");
+        Trip trip = getItem(position);
+        holder.tvName.setText(trip.getName());
+        holder.tvMembers.setText(trip.getMemberCount() + " Members");
         holder.itemView.setOnClickListener(v -> listener.onTripClick(trip));
         holder.itemView.setOnLongClickListener(v -> {
             listener.onTripLongClick(trip);
@@ -58,17 +67,6 @@ public class TripListAdapter extends ListAdapter<TripListAdapter.TripObj, TripLi
             super(itemView);
             tvName = itemView.findViewById(R.id.tvTripName);
             tvMembers = itemView.findViewById(R.id.tvTripMembersCount);
-        }
-    }
-
-    public static class TripObj {
-        public String id;
-        public String name;
-        public int memberCount;
-        public TripObj(String id, String name, int memberCount) {
-            this.id = id;
-            this.name = name;
-            this.memberCount = memberCount;
         }
     }
 }

@@ -1,38 +1,44 @@
 package com.smartexpense.mobile;
 
-import com.google.firebase.Timestamp;
+import java.util.Date;
 
 public class BillModel {
-    private String id;
-    private String name;
+
+    private String billerName;
+    private double amountDue;
+    private Date dueDate;
+    private boolean isPaid;
     private String category;
-    private double amount;
-    private int dueDay;
-    private String frequency;
-    private String status; // overdue, dueSoon, upcoming, paid
-    private Timestamp lastPaidAt;
+    private Date lastPaidAt;
 
-    public BillModel() {}
+    public BillModel() {
+        // Required empty public constructor for Firestore
+    }
 
-    public BillModel(String name, String category, double amount, int dueDay, String frequency) {
-        this.name = name;
+    public BillModel(String billerName, double amountDue, Date dueDate, boolean isPaid, String category) {
+        this.billerName = billerName;
+        this.amountDue = amountDue;
+        this.dueDate = dueDate;
+        this.isPaid = isPaid;
         this.category = category;
-        this.amount = amount;
-        this.dueDay = dueDay;
-        this.frequency = frequency;
-        this.status = "upcoming";
     }
 
     // Getters and Setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getName() { return name; }
+    public String getBillerName() { return billerName; }
+    public void setBillerName(String billerName) { this.billerName = billerName; }
+
+    public double getAmountDue() { return amountDue; }
+    public void setAmountDue(double amountDue) { this.amountDue = amountDue; }
+
+    public Date getDueDate() { return dueDate; }
+    public void setDueDate(Date dueDate) { this.dueDate = dueDate; }
+
+    public boolean isPaid() { return isPaid; }
+    public void setPaid(boolean paid) { isPaid = paid; }
+
     public String getCategory() { return category; }
-    public double getAmount() { return amount; }
-    public int getDueDay() { return dueDay; }
-    public String getFrequency() { return frequency; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Timestamp getLastPaidAt() { return lastPaidAt; }
-    public void setLastPaidAt(Timestamp lastPaidAt) { this.lastPaidAt = lastPaidAt; }
+    public void setCategory(String category) { this.category = category; }
+
+    public Date getLastPaidAt() { return lastPaidAt; }
+    public void setLastPaidAt(Date lastPaidAt) { this.lastPaidAt = lastPaidAt; }
 }

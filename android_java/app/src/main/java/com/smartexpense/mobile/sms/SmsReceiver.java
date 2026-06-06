@@ -8,9 +8,9 @@ import android.telephony.SmsMessage;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
+
+
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,19 +36,13 @@ public class SmsReceiver extends BroadcastReceiver {
                     if (details.amount > 0) {
                         new Thread(() -> {
                             try {
-                                // Give Firebase Auth up to 2 seconds to initialize from disk if background killed
-                                FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-                                int retries = 0;
-                                while (user == null && retries < 4) {
-                                    Thread.sleep(500);
-                                    user = FirebaseAuth.getInstance().getCurrentUser();
-                                    retries++;
-                                }
+                                android.content.SharedPreferences prefs = context.getSharedPreferences("ExpenseTracker", Context.MODE_PRIVATE);
+                                String uid = prefs.getString("userId", null);
                                 
-                                if (user != null) {
-                                    saveToFirestore(user.getUid(), details, smsMessage.getTimestampMillis());
+                                if (uid != null) {
+                                    saveToFirestore(uid, details, smsMessage.getTimestampMillis());
                                 } else {
-                                    Log.e(TAG, "Auth failed in background, cannot save SMS.");
+                                    Log.e(TAG, "No user logged in, cannot save SMS.");
                                 }
                             } catch (Exception e) {}
                         }).start();
@@ -59,7 +53,7 @@ public class SmsReceiver extends BroadcastReceiver {
     }
 
     private void saveToFirestore(String uid, SmsParserUtil.ParsedTransaction tx, long timestamp) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        
         boolean isBill = tx.originalMessage != null && (tx.originalMessage.toLowerCase().contains("due") || tx.originalMessage.toLowerCase().contains("bill") || "Bills & Utilities".equals(tx.category));
 
         Map<String, Object> data = new HashMap<>();
@@ -67,7 +61,7 @@ public class SmsReceiver extends BroadcastReceiver {
         data.put("merchant", tx.merchant);
         data.put("category", tx.category);
         data.put("type", tx.type);
-        data.put("date", new com.google.firebase.Timestamp(new java.util.Date(timestamp)));
+        data.put("date", timestamp);
         data.put("source", "sms_auto");
         data.put("rawMessage", tx.originalMessage);
 
@@ -75,34 +69,37 @@ public class SmsReceiver extends BroadcastReceiver {
         
         String targetCollection = isBill ? "bills" : "expenses";
         
-        db.collection("users").document(uid).collection(targetCollection).document(docId).get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                com.google.firebase.firestore.DocumentSnapshot doc = task.getResult();
-                if (doc != null && !doc.exists()) {
-                    if (isBill) {
-                        Map<String, Object> billData = new HashMap<>();
-                        billData.put("name", tx.merchant);
-                        billData.put("category", tx.category);
-                        billData.put("amount", tx.amount);
-                        billData.put("status", "upcoming");
-                        billData.put("dueDay", java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH));
-                        billData.put("frequency", "monthly");
-                        db.collection("users").document(uid).collection("bills").document(docId).set(billData);
-                    } else {
-                        db.collection("users").document(uid).collection("expenses").document(docId).set(data);
-                    }
-                    
-                    db.collection("users").document(uid).get().addOnSuccessListener(userDoc -> {
-                        Double bal = userDoc.getDouble("savingsBalance");
-                        if (bal == null) bal = 0.0;
-                        if ("debit".equals(tx.type)) bal -= tx.amount;
-                        else bal += tx.amount;
-                        db.collection("users").document(uid).update("savingsBalance", bal);
-                    });
-                }
-            } else {
-                Log.e(TAG, "Error checking collection", task.getException());
-            }
-        });
+        // Replaced Firestore with Retrofit API
+        if (!isBill) {
+            com.smartexpense.mobile.network.RetrofitClient.getClient()
+                .create(com.smartexpense.mobile.network.ApiService.class)
+                .createTransaction(data)
+                .enqueue(new retrofit2.Callback<Map<String, Object>>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<Map<String, Object>> call, retrofit2.Response<Map<String, Object>> response) {}
+                    @Override
+                    public void onFailure(retrofit2.Call<Map<String, Object>> call, Throwable t) {}
+                });
+        } else {
+            com.smartexpense.mobile.model.Bill bill = new com.smartexpense.mobile.model.Bill();
+            bill.userId = uid;
+            bill.billerName = tx.merchant != null ? tx.merchant : "Unknown Biller";
+            bill.amountDue = tx.amount;
+            bill.dueDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(new java.util.Date(timestamp));
+            bill.billType = tx.category != null ? tx.category : "Bills & Utilities";
+            bill.isPaid = false;
+            bill.rawSms = tx.originalMessage;
+            bill.detectedAt = timestamp;
+
+            com.smartexpense.mobile.network.RetrofitClient.getClient()
+                .create(com.smartexpense.mobile.network.ApiService.class)
+                .createBill(bill)
+                .enqueue(new retrofit2.Callback<com.smartexpense.mobile.model.Bill>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<com.smartexpense.mobile.model.Bill> call, retrofit2.Response<com.smartexpense.mobile.model.Bill> response) {}
+                    @Override
+                    public void onFailure(retrofit2.Call<com.smartexpense.mobile.model.Bill> call, Throwable t) {}
+                });
+        }
     }
 }

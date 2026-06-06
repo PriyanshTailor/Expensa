@@ -76,7 +76,9 @@ public class ConfirmSmsBottomSheet extends BottomSheetDialogFragment {
         new Thread(() -> {
             try {
                 com.smartexpense.mobile.database.AppDatabase db = com.smartexpense.mobile.database.AppDatabase.getDatabase(getContext());
-                String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+                android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+                String uid = prefs.getString("userId", null);
+
                 if (currentParsedData.isBill()) {
                     currentParsedData.bill.userId = uid;
                     db.billDao().insert(currentParsedData.bill);
@@ -85,20 +87,7 @@ public class ConfirmSmsBottomSheet extends BottomSheetDialogFragment {
                     db.transactionDao().insert(currentParsedData.transaction);
                 }
                 
-                // If they are logged in, also update their Firebase balance just in case they rely on it for UI
-                if (uid != null && !currentParsedData.isBill()) {
-                    com.google.firebase.firestore.FirebaseFirestore firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-                    firestore.collection("users").document(uid).get().addOnSuccessListener(userDoc -> {
-                        Double bal = userDoc.getDouble("savingsBalance");
-                        if (bal == null) bal = 0.0;
-                        if ("DEBIT".equalsIgnoreCase(currentParsedData.transaction.type)) {
-                            bal -= currentParsedData.transaction.amount;
-                        } else {
-                            bal += currentParsedData.transaction.amount;
-                        }
-                        firestore.collection("users").document(uid).update("savingsBalance", bal);
-                    });
-                }
+                // Removed Firebase code
                 
                 getActivity().runOnUiThread(() -> dismiss());
             } catch (Exception e) {

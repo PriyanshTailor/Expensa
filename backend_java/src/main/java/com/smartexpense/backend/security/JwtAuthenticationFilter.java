@@ -26,24 +26,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             String jwt = parseJwt(request);
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-                String userId = jwtUtils.getUserIdFromJwtToken(jwt);
+            if (jwt != null) {
+                System.out.println("Processing JWT for path: " + request.getRequestURI());
+                if (jwtUtils.validateJwtToken(jwt)) {
+                    String userId = jwtUtils.getUserIdFromJwtToken(jwt);
+                    System.out.println("JWT Valid. Authenticating user: " + userId);
+                    
+                    UserDetails userDetails = org.springframework.security.core.userdetails.User
+                        .withUsername(userId)
+                        .password("")
+                        .authorities("USER")
+                        .build();
 
-                // For simplicity, we'll create a basic UserDetails
-                UserDetails userDetails = org.springframework.security.core.userdetails.User
-                    .withUsername(userId)
-                    .password("")
-                    .authorities("USER")
-                    .build();
+                    UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    System.err.println("JWT Invalid for path: " + request.getRequestURI());
+                }
+            } else {
+                // System.out.println("No JWT found for path: " + request.getRequestURI());
             }
         } catch (Exception e) {
-            logger.error("Cannot set user authentication: {}", e);
+            System.err.println("Authentication Error: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);

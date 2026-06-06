@@ -37,8 +37,14 @@ public class TripMemberAdapter extends ListAdapter<TripDetailFragment.TripMember
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         TripDetailFragment.TripMember member = getItem(position);
-        holder.tvName.setText(member.name);
-        holder.tvSpent.setText(NumberFormat.getCurrencyInstance(new Locale("en", "IN")).format(member.spent));
+        if (member != null) {
+            holder.tvName.setText(member.name != null ? member.name : "Unknown");
+            try {
+                holder.tvSpent.setText(NumberFormat.getCurrencyInstance(new Locale("en", "IN")).format(member.spent));
+            } catch (Exception e) {
+                holder.tvSpent.setText("₹" + member.spent);
+            }
+        }
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

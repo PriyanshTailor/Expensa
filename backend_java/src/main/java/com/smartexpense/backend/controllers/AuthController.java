@@ -65,6 +65,7 @@ public class AuthController {
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
                 if (userService.validatePassword(user, password)) {
+
                     String token = jwtUtils.generateJwtToken(user.getId());
                     Map<String, Object> response = new HashMap<>();
                     response.put("token", token);

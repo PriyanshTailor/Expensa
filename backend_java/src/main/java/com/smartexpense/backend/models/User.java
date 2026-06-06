@@ -23,4 +23,7 @@ public class User {
     private String avatarUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    private Double savingsBalance = 0.0;
+    private Double mutualFunds = 0.0;
 }

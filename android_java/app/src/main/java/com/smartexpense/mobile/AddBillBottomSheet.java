@@ -12,8 +12,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.textfield.TextInputEditText;
-// import com.google.firebase.auth.FirebaseAuth;
-// import com.google.firebase.firestore.FirebaseFirestore;
+import com.smartexpense.mobile.network.*;
+import retrofit2.*;
+import java.util.Map;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,6 +43,12 @@ public class AddBillBottomSheet extends BottomSheetDialogFragment {
         return view;
     }
 
+    private Runnable onDismissListener;
+
+    public void setOnDismissListener(Runnable listener) {
+        this.onDismissListener = listener;
+    }
+
     private void saveBill() {
         String name = etName.getText().toString();
         String amount = etAmount.getText().toString();
@@ -54,35 +61,46 @@ public class AddBillBottomSheet extends BottomSheetDialogFragment {
         }
 
         try {
-            com.smartexpense.mobile.model.Bill bill = new com.smartexpense.mobile.model.Bill();
-            bill.billerName = name;
-            bill.amountDue = Double.parseDouble(amount);
-            bill.dueDate = dueDay; // Can also append "th" if needed
-            bill.billType = category.isEmpty() ? "Other" : category;
-            bill.isPaid = false;
-            bill.rawSms = "Manual entry";
-            bill.detectedAt = System.currentTimeMillis();
-            bill.userId = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+            String uid = prefs.getString("userId", null);
+            
+            if (uid != null) {
+                com.smartexpense.mobile.model.Bill bill = new com.smartexpense.mobile.model.Bill();
+                bill.userId = uid;
+                bill.billerName = name;
+                bill.amountDue = Double.parseDouble(amount);
+                bill.dueDate = dueDay;
+                bill.billType = category.isEmpty() ? "Other" : category;
+                bill.isPaid = false;
+                
+                btnSave.setEnabled(false);
+                btnSave.setText("Saving...");
+                
+                com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class).createBill(bill)
+                    .enqueue(new retrofit2.Callback<com.smartexpense.mobile.model.Bill>() {
+                        @Override
+                        public void onResponse(retrofit2.Call<com.smartexpense.mobile.model.Bill> call, retrofit2.Response<com.smartexpense.mobile.model.Bill> response) {
+                            btnSave.setEnabled(true);
+                            btnSave.setText("Save Bill");
+                            if (response.isSuccessful()) {
+                                Toast.makeText(getContext(), "Bill added successfully", Toast.LENGTH_SHORT).show();
+                                if (onDismissListener != null) onDismissListener.run();
+                                dismiss();
+                            } else {
+                                Toast.makeText(getContext(), "Failed to save bill", Toast.LENGTH_SHORT).show();
+                            }
+                        }
 
-            new Thread(() -> {
-                try {
-                    com.smartexpense.mobile.database.AppDatabase.getDatabase(getContext()).billDao().insert(bill);
-                    
-                    if (getActivity() != null) {
-                        getActivity().runOnUiThread(() -> {
-                            Toast.makeText(getContext(), "Bill saved", Toast.LENGTH_SHORT).show();
-                            dismiss();
-                        });
-                    }
-                } catch (Exception e) {
-                    if (getActivity() != null) {
-                        getActivity().runOnUiThread(() -> {
-                            Toast.makeText(getContext(), "Error saving bill", Toast.LENGTH_SHORT).show();
-                            dismiss();
-                        });
-                    }
-                }
-            }).start();
+                        @Override
+                        public void onFailure(retrofit2.Call<com.smartexpense.mobile.model.Bill> call, Throwable t) {
+                            btnSave.setEnabled(true);
+                            btnSave.setText("Save Bill");
+                            Toast.makeText(getContext(), "Network Error", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+            } else {
+                Toast.makeText(getContext(), "User not logged in", Toast.LENGTH_SHORT).show();
+            }
         } catch (Exception e) {
             Toast.makeText(getContext(), "Invalid data", Toast.LENGTH_SHORT).show();
         }

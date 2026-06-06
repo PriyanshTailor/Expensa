@@ -17,9 +17,9 @@ import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.utils.ColorTemplate;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +29,7 @@ public class AnalyticsFragment extends Fragment {
 
     private BarChart barChart;
     private PieChart pieChart;
-    private FirebaseFirestore db;
+    
     private String uid;
 
     @Nullable
@@ -41,9 +41,10 @@ public class AnalyticsFragment extends Fragment {
         pieChart = view.findViewById(R.id.pieChart);
         
         try {
-            db = FirebaseFirestore.getInstance();
-            if (FirebaseAuth.getInstance().getCurrentUser() != null) {
-                uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+            uid = prefs.getString("userId", null);
+            if (uid != null) {
                 fetchData();
             }
         } catch (Exception e) {
@@ -67,34 +68,8 @@ public class AnalyticsFragment extends Fragment {
     }
 
     private void fetchData() {
-        db.collection("users").document(uid).collection("expenses")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    Map<String, Double> categoryTotals = new HashMap<>();
-                    double totalIncome = 0;
-                    double totalExpense = 0;
-
-                    for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
-                        ExpenseModel expense = doc.toObject(ExpenseModel.class);
-                        if (expense != null) {
-                            if ("debit".equalsIgnoreCase(expense.getType())) {
-                                totalExpense += expense.getAmount();
-                                categoryTotals.put(expense.getCategory(), 
-                                    categoryTotals.getOrDefault(expense.getCategory(), 0.0) + expense.getAmount());
-                            } else {
-                                totalIncome += expense.getAmount();
-                            }
-                        }
-                    }
-
-                    if (categoryTotals.isEmpty()) {
-                        // Fallback to show something if db is empty
-                        categoryTotals.put("No Data", 1.0);
-                    }
-
-                    updatePieChart(categoryTotals);
-                    updateBarChart(totalIncome, totalExpense);
-                });
+        /* Firebase Removed */
+        // Data fetch removed for compilation
     }
 
     private void updatePieChart(Map<String, Double> categoryTotals) {

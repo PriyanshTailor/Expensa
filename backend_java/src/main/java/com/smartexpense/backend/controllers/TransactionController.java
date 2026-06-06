@@ -130,4 +130,47 @@ public class TransactionController {
             return ResponseEntity.internalServerError().body("Failed to delete transaction: " + e.getMessage());
         }
     }
+
+    @GetMapping("/recent")
+    public ResponseEntity<?> getRecentTransactions() {
+        try {
+            String userId = getCurrentUserId();
+            if (userId == null) {
+                return ResponseEntity.status(401).body("Unauthorized");
+            }
+
+            List<Transaction> transactions = transactionService.findByUserId(userId);
+            // Sort by date descending
+            transactions.sort((t1, t2) -> {
+                if (t1.getTransactionDate() == null || t2.getTransactionDate() == null) return 0;
+                return t2.getTransactionDate().compareTo(t1.getTransactionDate());
+            });
+            // Return top 5
+            return ResponseEntity.ok(transactions.stream().limit(5).toList());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed to fetch recent transactions: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<?> getTransactionSummary() {
+        try {
+            String userId = getCurrentUserId();
+            if (userId == null) {
+                return ResponseEntity.status(401).body("Unauthorized");
+            }
+
+            List<Transaction> transactions = transactionService.findByUserId(userId);
+            java.util.Map<String, Double> summary = new java.util.HashMap<>();
+            for (Transaction t : transactions) {
+                if ("DEBIT".equalsIgnoreCase(t.getType()) || "expense".equalsIgnoreCase(t.getType())) {
+                    String category = t.getCategory() != null ? t.getCategory() : "Other";
+                    summary.put(category, summary.getOrDefault(category, 0.0) + t.getAmount());
+                }
+            }
+            return ResponseEntity.ok(summary);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed to fetch transaction summary: " + e.getMessage());
+        }
+    }
 }

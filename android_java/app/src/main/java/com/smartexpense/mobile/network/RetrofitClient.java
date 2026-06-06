@@ -7,14 +7,23 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
-    public static final String BASE_URL = getAutoBaseUrl();
+    private static String customBaseUrl = null;
 
-    private static String getAutoBaseUrl() {
+    public static void setCustomBaseUrl(String url) {
+        customBaseUrl = url;
+        retrofit = null; // force rebuild
+    }
+
+    public static String getBaseUrl() {
+        if (customBaseUrl != null) {
+            return customBaseUrl;
+        }
         // Use 10.0.2.2 for Emulator, otherwise use the specific IP
-        if (android.os.Build.FINGERPRINT.contains("generic")) {
+        if (android.os.Build.FINGERPRINT.contains("generic") || android.os.Build.MODEL.contains("Emulator")) {
             return "http://10.0.2.2:8080/";
         }
-        return "http://10.79.25.74:8080/";
+        // Default IP
+        return "http://10.163.135.74:8080/";
     }
     private static Retrofit retrofit = null;
     private static String authToken = null;
@@ -32,16 +41,22 @@ public class RetrofitClient {
                     .addInterceptor(chain -> {
                         Request original = chain.request();
                         Request.Builder requestBuilder = original.newBuilder()
-                                .header("Content-Type", "application/json");
-                        if (authToken != null) {
+                                .header("Content-Type", "application/json")
+                                .header("Accept", "application/json");
+                        
+                        if (authToken != null && !authToken.isEmpty()) {
+                            android.util.Log.d("RetrofitClient", "Adding Auth Header: Bearer " + authToken.substring(0, Math.min(authToken.length(), 10)) + "...");
                             requestBuilder.header("Authorization", "Bearer " + authToken);
+                        } else {
+                            android.util.Log.w("RetrofitClient", "No Auth Token available for request to: " + original.url());
                         }
+
                         return chain.proceed(requestBuilder.build());
                     })
                     .build();
 
             retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
+                    .baseUrl(getBaseUrl())
                     .client(client)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();

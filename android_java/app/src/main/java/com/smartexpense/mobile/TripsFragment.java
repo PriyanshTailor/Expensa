@@ -10,33 +10,40 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import com.smartexpense.mobile.network.ApiService;
+import com.smartexpense.mobile.network.RetrofitClient;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import java.util.Map;
+
+import com.smartexpense.mobile.model.Trip;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class TripsFragment extends Fragment {
 
-    private RecyclerView rvTripsList;
     private TripListAdapter adapter;
-    private FirebaseFirestore db;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_trips_list, container, false);
 
-        rvTripsList = view.findViewById(R.id.rvTripsList);
+        RecyclerView rvTripsList = view.findViewById(R.id.rvTripsList);
         rvTripsList.setLayoutManager(new LinearLayoutManager(getContext()));
         
+
+
         adapter = new TripListAdapter(new TripListAdapter.OnTripClickListener() {
             @Override
-            public void onTripClick(TripListAdapter.TripObj trip) {
+            public void onTripClick(Trip trip) {
                 TripDetailFragment detailFrag = new TripDetailFragment();
                 Bundle args = new Bundle();
-                args.putString("TRIP_ID", trip.id);
-                args.putString("TRIP_NAME", trip.name);
+                args.putString("TRIP_ID", trip.getId());
+                args.putString("TRIP_NAME", trip.getName());
                 detailFrag.setArguments(args);
                 
                 requireActivity().getSupportFragmentManager()
@@ -47,13 +54,30 @@ public class TripsFragment extends Fragment {
             }
 
             @Override
-            public void onTripLongClick(TripListAdapter.TripObj trip) {
+            public void onTripLongClick(Trip trip) {
+                if (getContext() == null) return;
                 new androidx.appcompat.app.AlertDialog.Builder(getContext())
                     .setTitle("Delete Notebook")
-                    .setMessage("Are you sure you want to delete '" + trip.name + "'?")
+                    .setMessage("Are you sure you want to delete '" + trip.getName() + "'?")
                     .setPositiveButton("Delete", (dialog, which) -> {
-                        db.collection("trips").document(trip.id).delete()
-                            .addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Deleted", Toast.LENGTH_SHORT).show());
+                        RetrofitClient.getClient().create(ApiService.class).deleteTrip(trip.getId())
+                            .enqueue(new Callback<Void>() {
+                                @Override
+                                public void onResponse(Call<Void> call, Response<Void> response) {
+                                    if (getContext() != null) {
+                                        Toast.makeText(getContext(), "✓ Notebook deleted", Toast.LENGTH_SHORT).show();
+                                    }
+                                    loadTrips();
+                                }
+
+                                @Override
+                                public void onFailure(Call<Void> call, Throwable t) {
+                                    if (getContext() != null) {
+                                        Toast.makeText(getContext(), "Delete failed: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                                        android.util.Log.e("TripsFragment", "Delete error", t);
+                                    }
+                                }
+                            });
                     })
                     .setNegativeButton("Cancel", null)
                     .show();
@@ -61,38 +85,36 @@ public class TripsFragment extends Fragment {
         });
         rvTripsList.setAdapter(adapter);
 
-        db = FirebaseFirestore.getInstance();
+        view.findViewById(R.id.btnRefreshTrips).setOnClickListener(v -> loadTrips());
+
         loadTrips();
 
         view.findViewById(R.id.fabAddTrip).setOnClickListener(v -> {
-            new AddTripBottomSheet().show(getChildFragmentManager(), "add_new_trip");
+            AddTripBottomSheet sheet = new AddTripBottomSheet();
+            sheet.setOnDismissListener(this::loadTrips);
+            sheet.show(getChildFragmentManager(), "add_new_trip");
         });
 
         return view;
     }
 
     private void loadTrips() {
-        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        if (getContext() == null) return;
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+        String uid = prefs.getString("userId", null);
         if (uid == null) return;
-
-        db.collection("trips")
-            .whereEqualTo("createdBy", uid)
-            .addSnapshotListener((value, error) -> {
-            if (error != null) {
-                if (getContext() != null) Toast.makeText(getContext(), "Error loading trips", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (value != null) {
-                List<TripListAdapter.TripObj> trips = new ArrayList<>();
-                for (QueryDocumentSnapshot doc : value) {
-                    String name = doc.getString("name");
-                    if (name == null) name = "Trip";
-                    Map<String, Object> membersMap = (Map<String, Object>) doc.get("members");
-                    int count = membersMap != null ? membersMap.size() : 0;
-                    trips.add(new TripListAdapter.TripObj(doc.getId(), name, count));
+        
+        RetrofitClient.getClient().create(ApiService.class).getTrips(uid)
+            .enqueue(new Callback<List<Trip>>() {
+                @Override
+                public void onResponse(Call<List<Trip>> call, Response<List<Trip>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        adapter.submitList(response.body());
+                    }
                 }
-                adapter.submitList(trips);
-            }
-        });
+
+                @Override
+                public void onFailure(Call<List<Trip>> call, Throwable t) {}
+            });
     }
 }

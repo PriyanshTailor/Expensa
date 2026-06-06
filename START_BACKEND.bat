@@ -13,10 +13,17 @@ set BACKEND_DIR="%cd%\backend_java"
 
 echo Checking Maven installation...
 if not exist "%MAVEN_HOME%" (
-    echo ERROR: Maven not found at %MAVEN_HOME%
-    echo Please run the setup script first.
-    pause
-    exit /b 1
+    echo Maven not found in TEMP. Checking common locations...
+    if exist "C:\Program Files\NetBeans-22\netbeans\java\maven\bin\mvn.cmd" (
+        set MAVEN_HOME=C:\Program Files\NetBeans-22\netbeans\java\maven
+    ) else if exist "C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2024.1.4\plugins\maven\lib\maven3\bin\mvn.cmd" (
+        set MAVEN_HOME=C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2024.1.4\plugins\maven\lib\maven3
+    ) else (
+        echo ERROR: Maven not found.
+        echo Please install Maven or run the setup script.
+        pause
+        exit /b 1
+    )
 )
 
 echo Maven found at: %MAVEN_HOME%

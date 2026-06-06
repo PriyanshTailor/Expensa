@@ -1,7 +1,5 @@
 package com.smartexpense.mobile;
 
-import com.google.firebase.Timestamp;
-
 public class ExpenseModel {
     private String id;
     private double amount;
@@ -10,11 +8,11 @@ public class ExpenseModel {
     private String type; // debit or credit
     private String merchant;
     private String note;
-    private Timestamp date;
+    private long date;
 
     public ExpenseModel() {} // Required for Firestore
 
-    public ExpenseModel(double amount, String category, String paymentMode, String type, String merchant, String note, Timestamp date) {
+    public ExpenseModel(double amount, String category, String paymentMode, String type, String merchant, String note, long date) {
         this.amount = amount;
         this.category = category;
         this.paymentMode = paymentMode;
@@ -33,5 +31,5 @@ public class ExpenseModel {
     public String getType() { return type; }
     public String getMerchant() { return merchant; }
     public String getNote() { return note; }
-    public Timestamp getDate() { return date; }
+    public long getDate() { return date; }
 }

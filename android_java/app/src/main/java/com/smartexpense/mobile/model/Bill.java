@@ -5,8 +5,9 @@ import androidx.room.PrimaryKey;
 
 @Entity(tableName = "bills")
 public class Bill {
-    @PrimaryKey(autoGenerate = true)
-    public int id;
+    @PrimaryKey
+    @androidx.annotation.NonNull
+    public String id = "";
     
     public String billType;
     public String billerName;

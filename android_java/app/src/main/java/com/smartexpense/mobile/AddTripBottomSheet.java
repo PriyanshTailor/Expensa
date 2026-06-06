@@ -10,7 +10,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.firestore.FirebaseFirestore;
+
+import com.smartexpense.mobile.model.Trip;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,7 +20,12 @@ public class AddTripBottomSheet extends BottomSheetDialogFragment {
 
     private TextInputEditText etName, etMembers;
     private Button btnCreate;
-    private FirebaseFirestore db;
+    
+    private Runnable onDismissListener;
+
+    public void setOnDismissListener(Runnable listener) {
+        this.onDismissListener = listener;
+    }
 
     @Nullable
     @Override
@@ -28,7 +35,8 @@ public class AddTripBottomSheet extends BottomSheetDialogFragment {
         etName = view.findViewById(R.id.etTripName);
         etMembers = view.findViewById(R.id.etTripMembers);
         btnCreate = view.findViewById(R.id.btnCreateTrip);
-        db = FirebaseFirestore.getInstance();
+        
+        
 
         btnCreate.setOnClickListener(v -> createTrip());
 
@@ -39,8 +47,12 @@ public class AddTripBottomSheet extends BottomSheetDialogFragment {
         String name = etName.getText().toString().trim();
         String membersStr = etMembers.getText().toString().trim();
 
-        if (name.isEmpty() || membersStr.isEmpty()) {
-            Toast.makeText(getContext(), "Please fill all fields", Toast.LENGTH_SHORT).show();
+        if (name.isEmpty()) {
+            Toast.makeText(getContext(), "Please enter notebook name", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (membersStr.isEmpty()) {
+            Toast.makeText(getContext(), "Please add at least one member (comma-separated)", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -49,6 +61,12 @@ public class AddTripBottomSheet extends BottomSheetDialogFragment {
         
         Map<String, Double> membersMap = new HashMap<>();
         String[] membersArray = membersStr.split(",");
+
+        if (membersArray.length == 0) {
+            Toast.makeText(getContext(), "Please add valid members", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         for (String m : membersArray) {
             String cleanName = m.trim();
             if (!cleanName.isEmpty()) {
@@ -56,20 +74,51 @@ public class AddTripBottomSheet extends BottomSheetDialogFragment {
             }
         }
         
-        tripData.put("members", membersMap);
-        
-        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
-        if (uid != null) {
-            tripData.put("createdBy", uid);
+        if (membersMap.isEmpty()) {
+            Toast.makeText(getContext(), "Please add valid members", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        db.collection("trips").add(tripData)
-            .addOnSuccessListener(docRef -> {
-                Toast.makeText(getContext(), "Notebook Created!", Toast.LENGTH_SHORT).show();
-                dismiss();
-            })
-            .addOnFailureListener(e -> {
-                Toast.makeText(getContext(), "Failed to create", Toast.LENGTH_SHORT).show();
+        tripData.put("members", membersMap);
+        
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+        String uid = prefs.getString("userId", null);
+        if (uid == null) {
+            Toast.makeText(getContext(), "User not logged in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        tripData.put("createdBy", uid);
+
+        btnCreate.setEnabled(false);
+        btnCreate.setText("Creating...");
+
+        com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class).createTrip(tripData)
+            .enqueue(new retrofit2.Callback<Trip>() {
+                @Override
+                public void onResponse(retrofit2.Call<Trip> call, retrofit2.Response<Trip> response) {
+                    btnCreate.setEnabled(true);
+                    btnCreate.setText("Create Notebook");
+                    if (response.isSuccessful()) {
+                        if (getContext() != null) {
+                            Toast.makeText(getContext(), "Notebook Created!", Toast.LENGTH_SHORT).show();
+                        }
+                        if (onDismissListener != null) onDismissListener.run();
+                        dismiss();
+                    } else {
+                        if (getContext() != null) {
+                            Toast.makeText(getContext(), "Failed to create notebook", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<Trip> call, Throwable t) {
+                    btnCreate.setEnabled(true);
+                    btnCreate.setText("Create Notebook");
+                    if (getContext() != null) {
+                        Toast.makeText(getContext(), "Network Error", Toast.LENGTH_SHORT).show();
+                    }
+                }
             });
     }
 }

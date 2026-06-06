@@ -8,17 +8,19 @@ import android.widget.TextView;
 import android.widget.ViewFlipper;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.smartexpense.mobile.network.ApiService;
+import com.smartexpense.mobile.network.RetrofitClient;
 import java.util.HashMap;
 import java.util.Map;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class OnboardingActivity extends AppCompatActivity {
 
     private ViewFlipper viewFlipper;
     private EditText etSavings, etMF, etBillName, etBillAmount, etBillDue;
     private Button btnNext1, btnNext2, btnNext3, btnFinish;
-    private FirebaseFirestore db;
     private String uid;
 
     @Override
@@ -26,10 +28,10 @@ public class OnboardingActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_onboarding);
 
-        db = FirebaseFirestore.getInstance();
-        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
-            uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        } else {
+
+        android.content.SharedPreferences prefs = getSharedPreferences("ExpenseTracker", MODE_PRIVATE);
+        uid = prefs.getString("userId", null);
+        if (uid == null) {
             finish();
             return;
         }
@@ -59,22 +61,30 @@ public class OnboardingActivity extends AppCompatActivity {
     }
 
     private void saveAndFinish() {
-        Map<String, Object> data = new HashMap<>();
+        Map<String, Double> data = new HashMap<>();
         String s = etSavings.getText().toString();
         String m = etMF.getText().toString();
         
         data.put("savingsBalance", Double.parseDouble(s.isEmpty() ? "0" : s));
         data.put("mutualFunds", Double.parseDouble(m.isEmpty() ? "0" : m));
-        data.put("onboardingCompleted", true);
 
-        db.collection("users").document(uid).set(data, com.google.firebase.firestore.SetOptions.merge())
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(OnboardingActivity.this, "Profile Setup Complete!", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(OnboardingActivity.this, MainActivity.class));
-                    finish();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(OnboardingActivity.this, "Error saving: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+        RetrofitClient.getClient().create(ApiService.class).updateBalance(uid, data)
+            .enqueue(new Callback<Map<String, Object>>() {
+                @Override
+                public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                    if (response.isSuccessful()) {
+                        Toast.makeText(OnboardingActivity.this, "Profile Setup Complete!", Toast.LENGTH_SHORT).show();
+                        startActivity(new Intent(OnboardingActivity.this, MainActivity.class));
+                        finish();
+                    } else {
+                        Toast.makeText(OnboardingActivity.this, "Error saving: " + response.message(), Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    Toast.makeText(OnboardingActivity.this, "Network Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
     }
 }

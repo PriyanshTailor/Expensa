@@ -136,6 +136,16 @@
                 android:textColor="@color/jio_primary"
                 android:textStyle="bold" />
 
+            <TextView
+                android:id="@+id/tvServerConfig"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
+                android:text="⚙ Server Config"
+                android:textColor="@color/jio_text_secondary"
+                android:textStyle="italic" />
+
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

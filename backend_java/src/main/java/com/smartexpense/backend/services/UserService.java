@@ -32,7 +32,9 @@ public class UserService {
             // Hash password
             user.setPasswordHash(passwordEncoder.encode(user.getPassword()));
 
-            return userRepository.save(user);
+            User savedUser = userRepository.save(user);
+
+            return savedUser;
         } catch (Exception e) {
             throw new RuntimeException("Error registering user: " + e.getMessage());
         }

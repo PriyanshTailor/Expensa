@@ -12,9 +12,13 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import androidx.lifecycle.ViewModelProvider;
+import com.smartexpense.mobile.network.ApiService;
+import com.smartexpense.mobile.network.RetrofitClient;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import java.util.Map;
 import com.smartexpense.mobile.model.Transaction;
-import com.smartexpense.mobile.viewmodel.ExpenseViewModel;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -37,7 +41,6 @@ public class ExpensesFragment extends Fragment {
     private TextView tvTotalSpent, tvTotalIncome, tvNetSavings;
     private RecyclerView rvExpenses;
     private FloatingActionButton fabAdd;
-    private ExpenseViewModel expenseViewModel;
     private ExpenseAdapter adapter;
 
     @Nullable
@@ -47,11 +50,52 @@ public class ExpensesFragment extends Fragment {
 
         initViews(view);
 
-        expenseViewModel = new ViewModelProvider(this).get(ExpenseViewModel.class);
-        expenseViewModel.getAllTransactions().observe(getViewLifecycleOwner(), transactions -> {
-            adapter.submitList(transactions);
-            calculateTotals(transactions);
-        });
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+        String uid = prefs.getString("userId", null);
+        if (uid != null) {
+            RetrofitClient.getClient().create(ApiService.class).getTransactions()
+                .enqueue(new Callback<List<Map<String, Object>>>() {
+                    @Override
+                    public void onResponse(Call<List<Map<String, Object>>> call, Response<List<Map<String, Object>>> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            List<Map<String, Object>> docs = response.body();
+                            List<Transaction> transactions = new ArrayList<>();
+                            for (Map<String, Object> doc : docs) {
+                                Transaction tx = new Transaction();
+                                tx.amount = doc.get("amount") instanceof Number ? ((Number) doc.get("amount")).doubleValue() : 0.0;
+                                tx.merchant = (String) doc.get("merchant");
+                                tx.category = (String) doc.get("category");
+                                tx.type = (String) doc.get("type");
+                                
+                                Object dateObj = doc.get("date");
+                                if (dateObj instanceof Number) {
+                                    tx.timestamp = ((Number) dateObj).longValue();
+                                } else if (dateObj instanceof String) {
+                                    try {
+                                        java.time.Instant instant = java.time.Instant.parse((String) dateObj);
+                                        tx.timestamp = instant.toEpochMilli();
+                                    } catch(Exception e){}
+                                }
+                                
+                                tx.rawSms = (String) doc.get("rawMessage");
+                                if (tx.rawSms == null) tx.rawSms = "";
+                                tx.source = (String) doc.get("source");
+                                transactions.add(tx);
+                            }
+                            
+                            // Sort descending
+                            transactions.sort((t1, t2) -> Long.compare(t2.timestamp, t1.timestamp));
+                            
+                            adapter.submitList(transactions);
+                            calculateTotals(transactions);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<Map<String, Object>>> call, Throwable t) {
+                    }
+                });
+        }
 
         fabAdd.setOnClickListener(v -> {
             new AddExpenseBottomSheet().show(getChildFragmentManager(), "add_expense");

@@ -3,6 +3,7 @@ package com.smartexpense.mobile;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -10,14 +11,13 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.LinearLayout;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.smartexpense.mobile.network.RetrofitClient;
 import com.smartexpense.mobile.network.ApiService;
 import com.google.android.material.textfield.TextInputLayout;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.util.HashMap;
 import java.util.Map;
 import retrofit2.Call;
@@ -28,7 +28,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private EditText etName, etEmail, etPassword;
     private Button btnLogin;
-    private TextView tvSignup, tvError, tvModeInfo;
+    private TextView tvSignup, tvError, tvModeInfo, tvServerConfig;
     private TextInputLayout nameLayout;
     private LinearLayout modeInfo;
     private boolean isSignupMode = false;
@@ -40,6 +40,11 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
 
         sharedPreferences = getSharedPreferences("ExpenseTracker", MODE_PRIVATE);
+        
+        String savedIp = sharedPreferences.getString("serverIp", null);
+        if (savedIp != null && !savedIp.isEmpty()) {
+            RetrofitClient.setCustomBaseUrl("http://" + savedIp + ":8080/");
+        }
 
         etName = findViewById(R.id.etName);
         etEmail = findViewById(R.id.etEmail);
@@ -48,8 +53,11 @@ public class LoginActivity extends AppCompatActivity {
         tvSignup = findViewById(R.id.tvSignup);
         tvError = findViewById(R.id.tvError);
         tvModeInfo = findViewById(R.id.tvModeInfo);
+        tvServerConfig = findViewById(R.id.tvServerConfig);
         nameLayout = findViewById(R.id.nameLayout);
         modeInfo = findViewById(R.id.modeInfo);
+
+        tvServerConfig.setOnClickListener(v -> showServerConfigDialog());
 
         tvSignup.setOnClickListener(v -> {
             isSignupMode = !isSignupMode;
@@ -85,30 +93,26 @@ public class LoginActivity extends AppCompatActivity {
                     return;
                 }
 
-                ApiService apiService = RetrofitClient.getClient().create(ApiService.class);
-                Map<String, String> data = new HashMap<>();
-                data.put("email", email);
-                data.put("password", password);
-                if (isSignupMode) {
-                    data.put("name", name);
-                }
-
                 btnLogin.setEnabled(false);
                 btnLogin.setText(isSignupMode ? "Creating Account..." : "Logging In...");
                 Toast.makeText(LoginActivity.this, isSignupMode ? "Starting Signup..." : "Starting Login...", Toast.LENGTH_SHORT).show();
 
                 if (isSignupMode) {
-                    performSignup(apiService, data);
+                    performSignup(email, password, name);
                 } else {
-                    performLogin(apiService, data);
+                    performLogin(email, password);
                 }
             }
         });
 
-        // Check if user is already logged in via Firebase
-        if (com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null) {
-            startActivity(new Intent(LoginActivity.this, MainActivity.class));
-            finish();
+        // Check if user is already logged in
+        if (sharedPreferences.getBoolean("isLoggedIn", false)) {
+            String token = sharedPreferences.getString("token", null);
+            if (token != null) {
+                RetrofitClient.setAuthToken(token);
+                startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                finish();
+            }
         }
     }
 
@@ -139,56 +143,111 @@ public class LoginActivity extends AppCompatActivity {
         tvError.setVisibility(View.GONE);
     }
 
-    private void performSignup(ApiService apiService, Map<String, String> data) {
-        String email = data.get("email");
-        String password = data.get("password");
-        String name = data.get("name");
+    private void showServerConfigDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Server IP Address");
+        builder.setMessage("Enter the IP address of your backend server (e.g., 10.163.135.74)");
+        
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        String currentIp = sharedPreferences.getString("serverIp", "");
+        input.setText(currentIp);
+        builder.setView(input);
+        
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String ip = input.getText().toString().trim();
+            if (!ip.isEmpty()) {
+                sharedPreferences.edit().putString("serverIp", ip).apply();
+                RetrofitClient.setCustomBaseUrl("http://" + ip + ":8080/");
+                Toast.makeText(this, "Server IP updated to " + ip, Toast.LENGTH_SHORT).show();
+            } else {
+                sharedPreferences.edit().remove("serverIp").apply();
+                RetrofitClient.setCustomBaseUrl(null);
+                Toast.makeText(this, "Server IP reset to default", Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
+    }
 
-        FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = task.getResult().getUser();
-                        if (user != null) {
-                            Map<String, Object> profile = new HashMap<>();
-                            profile.put("name", name);
-                            profile.put("email", email);
-                            profile.put("savingsBalance", 0.0);
-                            profile.put("mutualFunds", 0.0);
-                            profile.put("onboardingCompleted", false);
+    private void performSignup(String email, String password, String name) {
+        Map<String, String> request = new HashMap<>();
+        request.put("email", email);
+        request.put("password", password);
+        request.put("name", name);
 
-                            FirebaseFirestore.getInstance().collection("users")
-                                    .document(user.getUid()).set(profile)
-                                    .addOnSuccessListener(aVoid -> {
-                                        btnLogin.setEnabled(true);
-                                        btnLogin.setText("Sign Up");
-                                        Toast.makeText(LoginActivity.this, "✓ Account Created!", Toast.LENGTH_SHORT).show();
-                                        isSignupMode = false;
-                                        updateUIForMode();
-                                    });
-                        }
+        RetrofitClient.getClient().create(ApiService.class).register(request)
+            .enqueue(new Callback<Map<String, Object>>() {
+                @Override
+                public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        // After successful signup, immediately log them in to get the JWT token
+                        performLogin(email, password);
                     } else {
                         btnLogin.setEnabled(true);
                         btnLogin.setText("Sign Up");
-                        showError("Signup Failed: " + task.getException().getMessage());
+                        showError("Signup Failed: " + response.message());
                     }
-                });
+                }
+
+                @Override
+                public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    btnLogin.setEnabled(true);
+                    btnLogin.setText("Sign Up");
+                    showError("Network Error: " + t.getMessage());
+                }
+            });
     }
 
-    private void performLogin(ApiService apiService, Map<String, String> data) {
-        String email = data.get("email");
-        String password = data.get("password");
+    private void performLogin(String email, String password) {
+        Map<String, String> request = new HashMap<>();
+        request.put("email", email);
+        request.put("password", password);
 
-        FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(task -> {
+        RetrofitClient.getClient().create(ApiService.class).login(request)
+            .enqueue(new Callback<Map<String, Object>>() {
+                @Override
+                public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                     btnLogin.setEnabled(true);
-                    btnLogin.setText("Login");
-                    if (task.isSuccessful()) {
-                        Toast.makeText(LoginActivity.this, "✓ Welcome back!", Toast.LENGTH_SHORT).show();
+                    btnLogin.setText(isSignupMode ? "Sign Up" : "Login");
+
+                    if (response.isSuccessful() && response.body() != null) {
+                        Map<String, Object> body = response.body();
+                        String token = (String) body.get("token");
+                        
+                        // User map parsing
+                        Map<String, Object> userMap = null;
+                        if (body.get("user") instanceof Map) {
+                            userMap = (Map<String, Object>) body.get("user");
+                        }
+                        
+                        String userId = userMap != null && userMap.get("id") != null ? String.valueOf(userMap.get("id")) : "Unknown";
+                        String userName = userMap != null && userMap.get("name") != null ? String.valueOf(userMap.get("name")) : "User";
+
+                        SharedPreferences.Editor editor = sharedPreferences.edit();
+                        editor.putString("token", token);
+                        editor.putBoolean("isLoggedIn", true);
+                        editor.putString("userId", userId);
+                        editor.putString("userName", userName);
+                        editor.putString("userEmail", email);
+                        editor.apply();
+
+                        RetrofitClient.setAuthToken(token);
+
+                        Toast.makeText(LoginActivity.this, "✓ Welcome " + userName + "!", Toast.LENGTH_SHORT).show();
                         startActivity(new Intent(LoginActivity.this, MainActivity.class));
                         finish();
                     } else {
-                        showError("Login Failed: " + task.getException().getMessage());
+                        showError("Invalid email or password");
                     }
-                });
+                }
+
+                @Override
+                public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    btnLogin.setEnabled(true);
+                    btnLogin.setText(isSignupMode ? "Sign Up" : "Login");
+                    showError("Network Error: " + t.getMessage());
+                }
+            });
     }
 }

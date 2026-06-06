@@ -12,17 +12,27 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FieldValue;
+
+
+import com.smartexpense.mobile.model.Trip;
+
+import java.util.HashMap;
 import java.util.Map;
+
+
 
 public class AddTripExpenseBottomSheet extends BottomSheetDialogFragment {
 
     private AutoCompleteTextView spinnerMember;
     private TextInputEditText etAmount, etDescription;
     private Button btnSave;
-    private FirebaseFirestore db;
+    
     private String tripId;
+    private Runnable onDismissListener;
+
+    public void setOnDismissListener(Runnable listener) {
+        this.onDismissListener = listener;
+    }
 
     @Nullable
     @Override
@@ -38,18 +48,33 @@ public class AddTripExpenseBottomSheet extends BottomSheetDialogFragment {
         etDescription = view.findViewById(R.id.etTripDescription);
         btnSave = view.findViewById(R.id.btnSaveTripExpense);
 
-        db = FirebaseFirestore.getInstance();
+        
 
         if (tripId != null) {
-            db.collection("trips").document(tripId).get().addOnSuccessListener(doc -> {
-                if (doc != null && doc.exists()) {
-                    Map<String, Object> membersMap = (Map<String, Object>) doc.get("members");
-                    if (membersMap != null) {
-                        String[] members = membersMap.keySet().toArray(new String[0]);
-                        spinnerMember.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_dropdown_item_1line, members));
+            // Fetch trip details to load members
+            com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class).getTrip(tripId)
+                .enqueue(new retrofit2.Callback<Trip>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<Trip> call, retrofit2.Response<Trip> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            Trip trip = response.body();
+                            Map<String, Double> membersMap = trip.getMembers();
+                            if (membersMap != null && !membersMap.isEmpty()) {
+                                String[] members = membersMap.keySet().toArray(new String[0]);
+                                spinnerMember.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_dropdown_item_1line, members));
+                                if (members.length > 0) {
+                                    spinnerMember.setText(members[0], false);
+                                }
+                            } else {
+                                Toast.makeText(getContext(), "No members", Toast.LENGTH_SHORT).show();
+                            }
+                        }
                     }
-                }
-            });
+                    @Override
+                    public void onFailure(retrofit2.Call<Trip> call, Throwable t) {}
+                });
+        } else {
+            Toast.makeText(getContext(), "Invalid notebook ID", Toast.LENGTH_SHORT).show();
         }
 
         btnSave.setOnClickListener(v -> saveExpense());
@@ -58,33 +83,68 @@ public class AddTripExpenseBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void saveExpense() {
-        String member = spinnerMember.getText().toString();
-        String amountStr = etAmount.getText().toString();
-        String desc = etDescription.getText().toString();
+        String member = spinnerMember.getText().toString().trim();
+        String amountStr = etAmount.getText().toString().trim();
+        String description = etDescription.getText().toString().trim();
 
-        if (member.isEmpty() || amountStr.isEmpty()) {
-            Toast.makeText(getContext(), "Please fill member and amount", Toast.LENGTH_SHORT).show();
+        if (member.isEmpty()) {
+            Toast.makeText(getContext(), "Please select a member", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (amountStr.isEmpty()) {
+            Toast.makeText(getContext(), "Please enter amount", Toast.LENGTH_SHORT).show();
             return;
         }
 
         try {
             double amount = Double.parseDouble(amountStr);
-            
-            if (tripId == null) return;
-            
-            // Increment the specific member's total in Firestore using FieldValue.increment
-            db.collection("trips").document(tripId)
-                .update("members." + member, FieldValue.increment(amount))
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Added " + member + "'s expense!", Toast.LENGTH_SHORT).show();
-                    dismiss();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Failed to sync to trip", Toast.LENGTH_SHORT).show();
+            if (amount <= 0) {
+                Toast.makeText(getContext(), "Amount must be greater than 0", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (tripId == null || tripId.isEmpty()) {
+                Toast.makeText(getContext(), "Invalid notebook ID", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("memberName", member);
+            data.put("amount", amount);
+            if (!description.isEmpty()) {
+                data.put("description", description);
+            }
+
+            btnSave.setEnabled(false);
+            btnSave.setText("Saving...");
+
+            com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class).addTripExpense(tripId, data)
+                .enqueue(new retrofit2.Callback<Trip>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<Trip> call, retrofit2.Response<Trip> response) {
+                        btnSave.setEnabled(true);
+                        btnSave.setText("Save Expense");
+                        if (response.isSuccessful()) {
+                            Toast.makeText(getContext(), "Expense added", Toast.LENGTH_SHORT).show();
+                            if (onDismissListener != null) onDismissListener.run();
+                            dismiss();
+                        } else {
+                            Toast.makeText(getContext(), "Failed to add expense", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(retrofit2.Call<Trip> call, Throwable t) {
+                        btnSave.setEnabled(true);
+                        btnSave.setText("Save Expense");
+                        Toast.makeText(getContext(), "Network Error", Toast.LENGTH_SHORT).show();
+                    }
                 });
                 
+        } catch (NumberFormatException e) {
+            Toast.makeText(getContext(), "Invalid amount format", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(getContext(), "Invalid amount", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 }

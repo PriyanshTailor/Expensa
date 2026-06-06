@@ -27,7 +27,7 @@ public class BillAdapter extends ListAdapter<Bill, BillAdapter.ViewHolder> {
         super(new DiffUtil.ItemCallback<Bill>() {
             @Override
             public boolean areItemsTheSame(@NonNull Bill oldItem, @NonNull Bill newItem) {
-                return oldItem.id == newItem.id;
+                return oldItem.id.equals(newItem.id);
             }
 
             @Override

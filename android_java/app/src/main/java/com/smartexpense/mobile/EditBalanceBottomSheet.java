@@ -51,13 +51,26 @@ public class EditBalanceBottomSheet extends BottomSheetDialogFragment {
             double newMF = valMF.isEmpty() ? 0 : Double.parseDouble(valMF);
 
             try {
-                String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
-                com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(uid)
-                        .update("savingsBalance", newSavings, "mutualFunds", newMF)
-                        .addOnSuccessListener(aVoid -> {
-                            if (listener != null) listener.onUpdated();
-                            dismiss();
+                android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+                String uid = prefs.getString("userId", null);
+                if (uid != null) {
+                    java.util.Map<String, Double> data = new java.util.HashMap<>();
+                    data.put("savingsBalance", newSavings);
+                    data.put("mutualFunds", newMF);
+                    
+                    com.smartexpense.mobile.network.RetrofitClient.getClient().create(com.smartexpense.mobile.network.ApiService.class).updateBalance(uid, data)
+                        .enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                            @Override
+                            public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                                if (response.isSuccessful()) {
+                                    if (listener != null) listener.onUpdated();
+                                    dismiss();
+                                }
+                            }
+                            @Override
+                            public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {}
                         });
+                }
             } catch (Exception e) {}
         });
 

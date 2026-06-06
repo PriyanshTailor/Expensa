@@ -7,16 +7,20 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-// import com.google.firebase.auth.FirebaseAuth;
-// import com.google.firebase.firestore.FirebaseFirestore;
+import com.smartexpense.mobile.network.ApiService;
+import com.smartexpense.mobile.network.RetrofitClient;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import java.util.Map;
 
 public class ProfileFragment extends Fragment {
 
     private TextView tvName, tvEmail;
-    private Button btnLogout, btnDeleteAccount;
 
 
     @Nullable
@@ -26,40 +30,37 @@ public class ProfileFragment extends Fragment {
 
         tvName = view.findViewById(R.id.tvProfileName);
         tvEmail = view.findViewById(R.id.tvProfileEmail);
-        btnLogout = view.findViewById(R.id.btnLogout);
-        btnDeleteAccount = view.findViewById(R.id.btnDeleteAccount);
+        Button btnLogout = view.findViewById(R.id.btnLogout);
+        Button btnDeleteAccount = view.findViewById(R.id.btnDeleteAccount);
 
 
         fetchProfile();
 
         btnLogout.setOnClickListener(v -> {
-            try {
-                com.google.firebase.auth.FirebaseAuth.getInstance().signOut();
-            } catch (Exception e) {}
+            if (getContext() != null) {
+                getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE).edit().clear().apply();
+                com.smartexpense.mobile.network.RetrofitClient.setAuthToken(null);
+            }
             startActivity(new Intent(getContext(), LoginActivity.class));
             if (getActivity() != null) getActivity().finish();
         });
 
         btnDeleteAccount.setOnClickListener(v -> {
+            if (getContext() == null) return;
             new androidx.appcompat.app.AlertDialog.Builder(getContext())
                 .setTitle("Delete Account")
-                .setMessage("Are you sure? This will permanently delete your profile and all manual expenses.")
+                .setMessage("Are you sure? This will permanently delete your profile data from cloud.")
                 .setPositiveButton("Delete", (dialog, which) -> {
-                    com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                    if (user != null) {
-                        String uid = user.getUid();
-                        // Delete Firestore data
-                        com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(uid).delete();
-                        // Delete Auth account
-                        user.delete().addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                android.widget.Toast.makeText(getContext(), "Account Deleted", android.widget.Toast.LENGTH_SHORT).show();
-                                startActivity(new Intent(getContext(), LoginActivity.class));
-                                if (getActivity() != null) getActivity().finish();
-                            } else {
-                                android.widget.Toast.makeText(getContext(), "Error: " + task.getException().getMessage(), android.widget.Toast.LENGTH_SHORT).show();
-                            }
-                        });
+                    android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+                    String uid = prefs.getString("userId", null);
+                    if (uid != null) {
+                        prefs.edit().clear().apply();
+                        com.smartexpense.mobile.network.RetrofitClient.setAuthToken(null);
+                        if (getContext() != null) {
+                            Toast.makeText(getContext(), "Account data cleared locally", Toast.LENGTH_SHORT).show();
+                        }
+                        startActivity(new Intent(getContext(), LoginActivity.class));
+                        if (getActivity() != null) getActivity().finish();
                     }
                 })
                 .setNegativeButton("Cancel", null)
@@ -70,26 +71,32 @@ public class ProfileFragment extends Fragment {
     }
 
     private void fetchProfile() {
+        if (getContext() == null) return;
         try {
-            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-            if (user != null) {
-                if (user.getDisplayName() != null && !user.getDisplayName().isEmpty()) {
-                    tvName.setText(user.getDisplayName());
-                }
-                if (user.getEmail() != null && !user.getEmail().isEmpty()) {
-                    tvEmail.setText(user.getEmail());
-                }
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("ExpenseTracker", android.content.Context.MODE_PRIVATE);
+            String uid = prefs.getString("userId", null);
+            String email = prefs.getString("userEmail", null);
+            String name = prefs.getString("userName", null);
 
-                String uid = user.getUid();
-                com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(uid)
-                        .addSnapshotListener((doc, e) -> {
-                            if (doc != null && doc.exists()) {
-                                String name = doc.getString("name");
-                                String email = doc.getString("email");
-                                if (name != null) tvName.setText(name);
-                                if (email != null) tvEmail.setText(email);
+            if (name != null) tvName.setText(name);
+            if (email != null) tvEmail.setText(email);
+
+            if (uid != null) {
+                RetrofitClient.getClient().create(ApiService.class).getUserProfile(uid)
+                    .enqueue(new Callback<Map<String, Object>>() {
+                        @Override
+                        public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                Map<String, Object> data = response.body();
+                                String n = (String) data.get("name");
+                                String em = (String) data.get("email");
+                                if (n != null) tvName.setText(n);
+                                if (em != null) tvEmail.setText(em);
                             }
-                        });
+                        }
+                        @Override
+                        public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
+                    });
             }
         } catch (Exception e) {
             tvName.setText("Config Error");
